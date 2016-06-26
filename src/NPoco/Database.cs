@@ -106,7 +106,7 @@ namespace NPoco
         { }
 
         public Database(string connectionString, DatabaseType dbType, IsolationLevel? isolationLevel)
-            : this(connectionString, dbType, isolationLevel,  DefaultEnableAutoSelect)
+            : this(connectionString, dbType, isolationLevel, DefaultEnableAutoSelect)
         { }
 
         public Database(string connectionString, DatabaseType dbType, IsolationLevel? isolationLevel, bool enableAutoSelect)
@@ -150,10 +150,10 @@ namespace NPoco
         { }
 
         public Database(string connectionStringName, bool enableAutoSelect)
-            : this(connectionStringName, (IsolationLevel?) null, enableAutoSelect)
+            : this(connectionStringName, (IsolationLevel?)null, enableAutoSelect)
         { }
 
-        public Database(string connectionStringName, IsolationLevel? isolationLevel,  bool enableAutoSelect)
+        public Database(string connectionStringName, IsolationLevel? isolationLevel, bool enableAutoSelect)
         {
             EnableAutoSelect = enableAutoSelect;
             KeepConnectionAlive = false;
@@ -778,10 +778,10 @@ namespace NPoco
                     if (val == null || val == DBNull.Value)
                         return default(T);
 
-                    Type t = typeof (T);
+                    Type t = typeof(T);
                     Type u = Nullable.GetUnderlyingType(t);
 
-                    return (T) Convert.ChangeType(val, u ?? t);
+                    return (T)Convert.ChangeType(val, u ?? t);
                 }
             }
             catch (Exception x)
@@ -903,29 +903,32 @@ namespace NPoco
             return Query(default(T), Sql);
         }
 
-        private IEnumerable<T> Read<T>(Type type, object instance, DbDataReader r)
+        private IEnumerable<T> Read<T>(Type type, object instance, DbDataReader r, DbCommand cmd)
         {
             try
             {
-                using (r)
+                using (cmd)
                 {
-                    var pd = PocoDataFactory.ForType(type);
-                    var factory = new MappingFactory(pd, r);
-                    while (true)
+                    using (r)
                     {
-                        T poco;
-                        try
+                        var pd = PocoDataFactory.ForType(type);
+                        var factory = new MappingFactory(pd, r);
+                        while (true)
                         {
-                            if (!r.Read()) yield break;
-                            poco = (T)factory.Map(r, instance);
-                        }
-                        catch (Exception x)
-                        {
-                            OnExceptionInternal(x);
-                            throw;
-                        }
+                            T poco;
+                            try
+                            {
+                                if (!r.Read()) yield break;
+                                poco = (T)factory.Map(r, instance);
+                            }
+                            catch (Exception x)
+                            {
+                                OnExceptionInternal(x);
+                                throw;
+                            }
 
-                        yield return poco;
+                            yield return poco;
+                        }
                     }
                 }
             }
@@ -935,7 +938,7 @@ namespace NPoco
             }
         }
 
-        private IEnumerable<T> ReadOneToMany<T>(T instance, DbDataReader r, Expression<Func<T, IList>> listExpression, Func<T, object[]> idFunc)
+        private IEnumerable<T> ReadOneToMany<T>(T instance, DbDataReader r, DbCommand cmd, Expression<Func<T, IList>> listExpression, Func<T, object[]> idFunc)
         {
             Func<T, IList> listFunc = null;
             PocoMember pocoMember = null;
@@ -943,56 +946,59 @@ namespace NPoco
 
             try
             {
-                using (r)
+                using (cmd)
                 {
-                    var pocoData = PocoDataFactory.ForType(typeof (T));
-                    if (listExpression != null)
+                    using (r)
                     {
-                        idFunc = idFunc ?? (x => pocoData.GetPrimaryKeyValues(x));
-                        listFunc = listExpression.Compile();
-                        var key = PocoColumn.GenerateKey(MemberChainHelper.GetMembers(listExpression));
-                        pocoMember = pocoData.Members.FirstOrDefault(x => x.Name == key);
-                        foreignMember = pocoMember != null ? pocoMember.PocoMemberChildren.FirstOrDefault(x => x.Name == pocoMember.ReferenceMemberName && x.ReferenceType == ReferenceType.Foreign) : null;
-                    }
-
-                    var factory = new MappingFactory(pocoData, r);
-                    object prevPoco = null;
-
-                    while (true)
-                    {
-                        T poco;
-                        try
+                        var pocoData = PocoDataFactory.ForType(typeof(T));
+                        if (listExpression != null)
                         {
-                            if (!r.Read()) break;
-                            poco = (T) factory.Map(r, instance);
+                            idFunc = idFunc ?? (x => pocoData.GetPrimaryKeyValues(x));
+                            listFunc = listExpression.Compile();
+                            var key = PocoColumn.GenerateKey(MemberChainHelper.GetMembers(listExpression));
+                            pocoMember = pocoData.Members.FirstOrDefault(x => x.Name == key);
+                            foreignMember = pocoMember != null ? pocoMember.PocoMemberChildren.FirstOrDefault(x => x.Name == pocoMember.ReferenceMemberName && x.ReferenceType == ReferenceType.Foreign) : null;
                         }
-                        catch (Exception x)
+
+                        var factory = new MappingFactory(pocoData, r);
+                        object prevPoco = null;
+
+                        while (true)
                         {
-                            OnExceptionInternal(x);
-                            throw;
+                            T poco;
+                            try
+                            {
+                                if (!r.Read()) break;
+                                poco = (T)factory.Map(r, instance);
+                            }
+                            catch (Exception x)
+                            {
+                                OnExceptionInternal(x);
+                                throw;
+                            }
+
+                            if (prevPoco != null)
+                            {
+                                if (listFunc != null
+                                    && pocoMember != null
+                                    && idFunc(poco).SequenceEqual(idFunc((T)prevPoco)))
+                                {
+                                    OneToManyHelper.SetListValue(listFunc, pocoMember, prevPoco, poco);
+                                    continue;
+                                }
+
+                                OneToManyHelper.SetForeignList(listFunc, foreignMember, prevPoco);
+                                yield return (T)prevPoco;
+                            }
+
+                            prevPoco = poco;
                         }
 
                         if (prevPoco != null)
                         {
-                            if (listFunc != null
-                                && pocoMember != null
-                                && idFunc(poco).SequenceEqual(idFunc((T) prevPoco)))
-                            {
-                                OneToManyHelper.SetListValue(listFunc, pocoMember, prevPoco, poco);
-                                continue;
-                            }
-
                             OneToManyHelper.SetForeignList(listFunc, foreignMember, prevPoco);
                             yield return (T)prevPoco;
                         }
-
-                        prevPoco = poco;
-                    }
-
-                    if (prevPoco != null)
-                    {
-                        OneToManyHelper.SetForeignList(listFunc, foreignMember, prevPoco);
-                        yield return (T)prevPoco;
                     }
                 }
             }
@@ -1037,14 +1043,22 @@ namespace NPoco
             try
             {
                 OpenSharedConnectionInternal();
-                using (var cmd = CreateCommand(_sharedConnection, sql, args))
+                var cmd = CreateCommand(_sharedConnection, sql, args);
+                DbDataReader r;
+                try
                 {
-                    var r = ExecuteDataReader(cmd);
-                    var read = Read<object>(type, null, r);
-                    foreach (var item in read)
-                    {
-                        yield return item;
-                    }
+                    r = ExecuteDataReader(cmd);
+                }
+                catch
+                {
+                    cmd.Dispose();
+                    throw;
+                }
+
+                var read = Read<object>(type, null, r, cmd);
+                foreach (var item in read)
+                {
+                    yield return item;
                 }
             }
             finally
@@ -1058,20 +1072,29 @@ namespace NPoco
             var sql = Sql.SQL;
             var args = Sql.Arguments;
 
-            if (EnableAutoSelect) sql = AutoSelectHelper.AddSelectClause(this, typeof (T), sql);
+            if (EnableAutoSelect) sql = AutoSelectHelper.AddSelectClause(this, typeof(T), sql);
 
             try
             {
                 OpenSharedConnectionInternal();
-                using (var cmd = CreateCommand(_sharedConnection, sql, args))
+                var cmd = CreateCommand(_sharedConnection, sql, args);
+                DbDataReader r;
+                try
                 {
-                    var r = ExecuteDataReader(cmd);
-                    var read = listExpression != null ? ReadOneToMany(instance, r, listExpression, idFunc) : Read<T>(typeof(T), instance, r);
-                    foreach (var item in read)
-                    {
-                        yield return item;
-                    }
+                    r = ExecuteDataReader(cmd);
                 }
+                catch
+                {
+                    cmd.Dispose();
+                    throw;
+                }
+
+                var read = listExpression != null ? ReadOneToMany(instance, r, cmd, listExpression, idFunc) : Read<T>(typeof(T), instance, r, cmd);
+                foreach (var item in read)
+                {
+                    yield return item;
+                }
+
             }
             finally
             {
@@ -1118,7 +1141,7 @@ namespace NPoco
         {
             return PageImp<T, Page<T>>(page, itemsPerPage, sql, args, (paged, thesql) =>
             {
-                paged.Items =  Query<T>(thesql).ToList();
+                paged.Items = Query<T>(thesql).ToList();
                 return paged;
             });
         }
@@ -1203,16 +1226,16 @@ namespace NPoco
                                     switch (typeIndex)
                                     {
                                         case 1:
-                                            list1.Add((T1) factory.Map(r, default(T1)));
+                                            list1.Add((T1)factory.Map(r, default(T1)));
                                             break;
                                         case 2:
-                                            list2.Add((T2) factory.Map(r, default(T2)));
+                                            list2.Add((T2)factory.Map(r, default(T2)));
                                             break;
                                         case 3:
-                                            list3.Add((T3) factory.Map(r, default(T3)));
+                                            list3.Add((T3)factory.Map(r, default(T3)));
                                             break;
                                         case 4:
-                                            list4.Add((T4) factory.Map(r, default(T4)));
+                                            list4.Add((T4)factory.Map(r, default(T4)));
                                             break;
                                     }
                                 }
@@ -1229,11 +1252,11 @@ namespace NPoco
                         switch (types.Length)
                         {
                             case 2:
-                                return ((Func<List<T1>, List<T2>, TRet>) cb)(list1, list2);
+                                return ((Func<List<T1>, List<T2>, TRet>)cb)(list1, list2);
                             case 3:
-                                return ((Func<List<T1>, List<T2>, List<T3>, TRet>) cb)(list1, list2, list3);
+                                return ((Func<List<T1>, List<T2>, List<T3>, TRet>)cb)(list1, list2, list3);
                             case 4:
-                                return ((Func<List<T1>, List<T2>, List<T3>, List<T4>, TRet>) cb)(list1, list2, list3, list4);
+                                return ((Func<List<T1>, List<T2>, List<T3>, List<T4>, TRet>)cb)(list1, list2, list3, list4);
                         }
 
                         return default(TRet);
@@ -1257,7 +1280,7 @@ namespace NPoco
         public bool Exists<T>(object primaryKey)
         {
             var index = 0;
-            var pd = PocoDataFactory.ForType(typeof (T));
+            var pd = PocoDataFactory.ForType(typeof(T));
             var primaryKeyValuePairs = GetPrimaryKeyValues(pd, pd.TableInfo.PrimaryKey, primaryKey, false);
             return ExecuteScalar<int>(string.Format(DatabaseType.GetExistsSql(), DatabaseType.EscapeTableName(pd.TableInfo.TableName), BuildPrimaryKeySql(primaryKeyValuePairs, ref index)), primaryKeyValuePairs.Select(x => x.Value).ToArray()) > 0;
         }
@@ -1277,7 +1300,7 @@ namespace NPoco
         private Sql GenerateSingleByIdSql<T>(object primaryKey)
         {
             var index = 0;
-            var pd = PocoDataFactory.ForType(typeof (T));
+            var pd = PocoDataFactory.ForType(typeof(T));
             var primaryKeyValuePairs = GetPrimaryKeyValues(pd, pd.TableInfo.PrimaryKey, primaryKey, false);
             var sql = AutoSelectHelper.AddSelectClause(this, typeof(T), string.Format("WHERE {0}", BuildPrimaryKeySql(primaryKeyValuePairs, ref index)));
             var args = primaryKeyValuePairs.Select(x => x.Value).ToArray();
@@ -1424,7 +1447,7 @@ namespace NPoco
 
                 foreach (var batchedPocos in pocos.Chunkify(options.BatchSize))
                 {
-                    var preparedInserts = batchedPocos.Select(x => InsertStatements.PrepareInsertSql(this, pd, pd.TableInfo.TableName, pd.TableInfo.PrimaryKey,pd.TableInfo.AutoIncrement, x)).ToArray();
+                    var preparedInserts = batchedPocos.Select(x => InsertStatements.PrepareInsertSql(this, pd, pd.TableInfo.TableName, pd.TableInfo.PrimaryKey, pd.TableInfo.AutoIncrement, x)).ToArray();
 
                     var sql = new Sql();
                     foreach (var preparedInsertSql in preparedInserts)
@@ -1648,8 +1671,8 @@ namespace NPoco
         {
             var expression = DatabaseType.ExpressionVisitor<T>(this, PocoDataFactory.ForType(typeof(T)));
             expression = expression.Select(fields);
-            var columnNames = ((ISqlExpression) expression).SelectMembers.Select(x => x.PocoColumn.ColumnName);
-            var otherNames = ((ISqlExpression) expression).GeneralMembers.Select(x => x.PocoColumn.ColumnName);
+            var columnNames = ((ISqlExpression)expression).SelectMembers.Select(x => x.PocoColumn.ColumnName);
+            var otherNames = ((ISqlExpression)expression).GeneralMembers.Select(x => x.PocoColumn.ColumnName);
             return Update(poco, columnNames.Union(otherNames));
         }
 
@@ -1943,7 +1966,7 @@ namespace NPoco
             {
                 return DatabaseFactory.ColumnSerializer.Serialize(value);
             }
-            if (pocoColumn.ColumnType == typeof (string) && IsEnum(pocoColumn.MemberInfoData) && value != null)
+            if (pocoColumn.ColumnType == typeof(string) && IsEnum(pocoColumn.MemberInfoData) && value != null)
             {
                 return value.ToString();
             }
