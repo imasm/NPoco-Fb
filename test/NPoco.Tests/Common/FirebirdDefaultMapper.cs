@@ -13,6 +13,12 @@ namespace NPoco.Tests.Common
 
         public override Func<object, object> GetFromDbConverter(Type DestType, Type SourceType)
         {
+            // Db:String -> String
+            if ((DestType == typeof(string)) && (SourceType == typeof(string)))
+            {
+                return src => (src as string)?.Trim();
+            }
+
             // Db:String -> Guid
             if ((DestType == typeof (Guid)) && (SourceType == typeof (string)))
             {

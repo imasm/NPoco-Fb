@@ -26,6 +26,9 @@ namespace NPoco.DatabaseTypes
 
         public override string EscapeSqlIdentifier(string str)
         {
+            if (str.StartsWith("_"))
+                return $"\"{str}\"";
+
             return str;
         }
 
