@@ -57,7 +57,7 @@ namespace NPoco.Tests.NewMapper
         [Test]
         public void Test4_2()
         {
-            var data = Database.Fetch<string[]>("select 'Name' Name, null npoco_wow, '4' Day, 'AUD' money__currency /*poco_dual*/").Single();
+            var data = Database.Fetch<string[]>("select 'Name' Name, null npoco_wow, '4' DayNum, 'AUD' money__currency /*poco_dual*/").Single();
             Assert.AreEqual("Name", data[0]);
             Assert.AreEqual("4", data[1]);
             Assert.AreEqual("AUD", data[2]);
@@ -67,7 +67,7 @@ namespace NPoco.Tests.NewMapper
         public void Test5()
         {
             var data = Database.Fetch<string>("select 'Name' /*poco_dual*/ union all select 'Name2' /*poco_dual*/");
-            Assert.AreEqual("Name", data[0]);
+            Assert.AreEqual("Name", data[0].Trim());
             Assert.AreEqual("Name2", data[1]);
         }
 
@@ -150,21 +150,21 @@ namespace NPoco.Tests.NewMapper
         public void Test13()
         {
             var user = Database.FetchOneToMany<One>(x => x.Items, new Sql(@"
-select 1 OneId, 'Name1' Name, null Items__Value, null Items__Currency /*poco_dual*/
+select 1 OneId, 'Name1' Name, null Items__AValue, null Items__Currency /*poco_dual*/
 union all
-select 1 OneId,'Name1' Name, 12 Items__Value, 'USD' Items__Currency /*poco_dual*/
+select 1 OneId,'Name1' Name, 12 Items__AValue, 'USD' Items__Currency /*poco_dual*/
 union all
-select 2 OneId,'Name2' Name, 14 Items__Value, 'YEN' Items__Currency /*poco_dual*/
+select 2 OneId,'Name2' Name, 14 Items__AValue, 'YEN' Items__Currency /*poco_dual*/
 union all
-select 2 OneId,'Name2' Name, 15 Items__Value, 'GBP' Items__Currency /*poco_dual*/
+select 2 OneId,'Name2' Name, 15 Items__AValue, 'GBP' Items__Currency /*poco_dual*/
 union all
-select 3 OneId,'Name3' Name, 16 Items__Value, 'EUR' Items__Currency /*poco_dual*/
+select 3 OneId,'Name3' Name, 16 Items__AValue, 'EUR' Items__Currency /*poco_dual*/
 union all
-select 4 OneId,'Name4' Name, null Items__Value, null Items__Currency /*poco_dual*/
+select 4 OneId,'Name4' Name, null Items__AValue, null Items__Currency /*poco_dual*/
 union all
-select 5 OneId,'Name5' Name, 17 Items__Value, 'CHN' Items__Currency /*poco_dual*/
+select 5 OneId,'Name5' Name, 17 Items__AValue, 'CHN' Items__Currency /*poco_dual*/
 union all
-select 5 OneId,'Name5' Name, null Items__Value, null Items__Currency /*poco_dual*/
+select 5 OneId,'Name5' Name, null Items__AValue, null Items__Currency /*poco_dual*/
 ")).ToList();
 
 
@@ -392,7 +392,8 @@ from RecursionUser r
         {
             var nestedConvention = new NestedConvention() { Name = "Name1" };
             Database.SingleInto(nestedConvention, @"
-select null name /*poco_dual*/");
+select null name /*poco_dual*/
+            ");
 
             Assert.AreEqual(null, nestedConvention.Name);
         }
