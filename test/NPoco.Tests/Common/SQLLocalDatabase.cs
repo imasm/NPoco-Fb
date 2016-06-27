@@ -24,7 +24,7 @@ namespace NPoco.Tests.Common
             FQDBFile = DBPath + "\\" + DBFileName;
             FQLogFile = DBPath + "\\" + LogFileName;
 
-            ConnectionString = String.Format("Data Source=(LocalDB)\\v11.0;Integrated Security=True;AttachDbFileName=\"{0}\";", FQDBFile);
+            ConnectionString = String.Format("Data Source=(localdb)\\MSSQLLocalDB;Integrated Security=True;AttachDbFileName=\"{0}\";", FQDBFile);
             ProviderName = "System.Data.SqlClient";
 
             RecreateDataBase();
@@ -63,7 +63,7 @@ namespace NPoco.Tests.Common
              * Using new connection so that when a transaction is bound to Connection if it rolls back 
              * it doesn't blow away the tables
              */
-            var conn = new SqlConnection("Data Source=(LocalDB)\\v11.0;Integrated Security=True;");
+            var conn = new SqlConnection("Data Source=(localdb)\\MSSQLLocalDB;Integrated Security=True;");
             conn.Open();
             var cmd = conn.CreateCommand();
 
@@ -82,7 +82,7 @@ namespace NPoco.Tests.Common
             // Create the new DB
             cmd.CommandText = String.Format("CREATE DATABASE {0} ON (NAME = N'{0}', FILENAME = '{1}')", DBName, FQDBFile);
             cmd.ExecuteNonQuery();
-            if (!File.Exists(DBFileName)) throw new Exception("Database failed to create");
+            if (!File.Exists(FQDBFile)) throw new Exception("Database failed to create");
             cmd.Connection.ChangeDatabase(DBName);
 
             // Create the Schema
