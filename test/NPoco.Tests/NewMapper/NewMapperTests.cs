@@ -489,7 +489,7 @@ select 22 Money__Value /*poco_dual*/");
 select 'NamePost' Name, 'Post' type /*poco_dual*/
 union
 select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
-").ToList();
+").OrderByDescending(x=>x.Name).ToList();
 
             Assert.AreEqual("NamePost", data[0].Name);
             Assert.AreEqual("Post", data[0].Type);
@@ -503,7 +503,7 @@ select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
         [Test]
         public void Test26()
         {
-            var data = Database.Fetch<OldConv>("select 3 Id, 'Name1' Name, 'Name2' Name, 'Name4' Name, 'Name3' Name").Single();
+            var data = Database.Fetch<OldConv>("select 3 Id, 'Name1' Name, 'Name2' Name, 'Name4' Name, 'Name3' Name /*poco_dual*/" ).Single();
             Assert.AreEqual(3, data.Id);
             Assert.AreEqual("Name1", data.Name);
             Assert.AreEqual("Name2", data.Nest1.Name);
@@ -514,7 +514,7 @@ select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
         [Test]
         public void Test26_1()
         {
-            var data = Database.Fetch<OldConv>("select 3 Id, 4 Id, 'Name2' Name, 'Name4' Name, 'Name3' Name").Single();
+            var data = Database.Fetch<OldConv>("select 3 Id, 4 Id, 'Name2' Name, 'Name4' Name, 'Name3' Name /*poco_dual*/").Single();
             Assert.AreEqual(3, data.Id);
             Assert.AreEqual(4, data.Nest1.Id);
             Assert.AreEqual("Name2", data.Nest1.Name);
@@ -546,7 +546,7 @@ select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
         [Test]
         public void Test27()
         {
-            var data = Database.Fetch<Test27Class>("select 3 Id, 'Name' Name").Single();
+            var data = Database.Fetch<Test27Class>("select 3 Id, 'Name' Name /*poco_dual*/").Single();
             Assert.AreEqual(3, data.Id);
             Assert.AreEqual("3", data.Name);
         }
@@ -560,7 +560,7 @@ select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
         [Test]
         public void Test28()
         {
-            var data = Database.Fetch<Test28Class>("select 3 Id, 'Name' Name, null, 'dyn' Dynamic__Value1, 'dict' Dict__Value2").Single();
+            var data = Database.Fetch<Test28Class>("select 3 Id, 'Name' Name, null, 'dyn' Dynamic__Value1, 'dict' Dict__Value2 /*poco_dual*/").Single();
             Assert.AreEqual(3, data.Id);
             Assert.AreEqual("Name", data.Name);
             Assert.AreEqual("dyn", data.Dynamic.Value1);
@@ -578,7 +578,7 @@ select 'NameAnswer' Name, 'Answer' type /*poco_dual*/
         [Test]
         public void Test29()
         {
-            var data = Database.Fetch<Test29Class>("select 3 Id, 4 Dyn").Single();
+            var data = Database.Fetch<Test29Class>("select 3 Id, 4 Dyn /*poco_dual*/").Single();
             Assert.AreEqual(3, data.Id);
             Assert.AreEqual(4, data.Dyn);
         }
